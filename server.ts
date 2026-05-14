@@ -5,6 +5,7 @@ import { createServer as createViteServer } from 'vite';
 import { Api, TelegramClient } from 'telegram';
 import { StringSession } from 'telegram/sessions';
 import { NewMessage } from 'telegram/events';
+import { Button } from 'telegram/tl/custom/button';
 
 const API_ID = 39960956;
 const API_HASH = '78f36658dc9c702a608dc71720ef7706';
@@ -304,12 +305,24 @@ async function startServer() {
                     messagesSentCurrentWindow = 0; 
                 }
 
-                const msgToSend = `${settings.msgText}\n\n[${settings.btnText}](${settings.btnLink})`;
+                const msgToSend = settings.msgText;
                 
-                await client!.sendMessage(sender.id, {
-                    message: msgToSend,
-                    parseMode: "md"
-                });
+                try {
+                    await client!.sendMessage(sender.id, {
+                        message: msgToSend,
+                        parseMode: "html",
+                        buttons: client!.buildReplyMarkup(Button.url(settings.btnText, settings.btnLink))
+                    });
+                } catch (sendErr: any) {
+                    if (sendErr.message && (sendErr.message.includes('BOT_METHOD_INVALID') || sendErr.message.includes('bot') || sendErr.message.includes('button') || sendErr.message.includes('markup'))) {
+                         await client!.sendMessage(sender.id, {
+                            message: `${settings.msgText}\n\n<a href="${settings.btnLink}">${settings.btnText}</a>`,
+                            parseMode: "html"
+                        });
+                    } else {
+                        throw sendErr; // rethrow for outer catch
+                    }
+                }
 
                 messagedUsers.add(userId);
                 messageHistory.push({
